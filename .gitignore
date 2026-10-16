@@ -1,0 +1,17 @@
+# 构建环境与产物（不入库，走 Release 分发）
+.venv-build/
+build/
+build_v2/
+build2/
+dist/
+dist_v2/
+dist2/
+__pycache__/
+*.pyc
+*.spec
+
+# 发布包（走 GitHub Releases）
+FastImageViewer-win64.zip
+
+# 本地备份
+deliver/backup/

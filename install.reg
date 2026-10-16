@@ -1,0 +1,154 @@
+Windows Registry Editor Version 5.00
+
+; ============================================================
+;  极速看图 FastImageViewer  —  安装 & 注册为默认图片打开方式
+;  作用范围：仅当前用户（HKCU），不污染系统，可一键卸载
+; ============================================================
+
+; ---------- 1. 注册应用程序本体 ----------
+[HKEY_CURRENT_USER\Software\Classes\Applications\FastImageViewer.exe]
+"FriendlyAppName"="极速看图"
+"ApplicationIcon"="C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe,0"
+
+[HKEY_CURRENT_USER\Software\Classes\Applications\FastImageViewer.exe\shell\open\command]
+@="\"C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\Applications\FastImageViewer.exe\SupportedTypes]
+".jpg"=""
+".jpeg"=""
+".png"=""
+".gif"=""
+".bmp"=""
+".webp"=""
+".tiff"=""
+".tif"=""
+".ico"=""
+
+; ---------- 2. 注册 ProgID：JPEG ----------
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.jpg]
+@="图片文件 (极速看图)"
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.jpg\DefaultIcon]
+@="C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe,0"
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.jpg\shell\open\command]
+@="\"C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\.jpg]
+@="FastImageViewer.jpg"
+[HKEY_CURRENT_USER\Software\Classes\.jpg\OpenWithProgids]
+"FastImageViewer.jpg"=""
+
+[HKEY_CURRENT_USER\Software\Classes\.jpeg]
+@="FastImageViewer.jpg"
+[HKEY_CURRENT_USER\Software\Classes\.jpeg\OpenWithProgids]
+"FastImageViewer.jpg"=""
+
+; ---------- 3. 注册 ProgID：PNG ----------
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.png]
+@="图片文件 (极速看图)"
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.png\DefaultIcon]
+@="C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe,0"
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.png\shell\open\command]
+@="\"C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\.png]
+@="FastImageViewer.png"
+[HKEY_CURRENT_USER\Software\Classes\.png\OpenWithProgids]
+"FastImageViewer.png"=""
+
+; ---------- 4. 注册 ProgID：GIF ----------
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.gif]
+@="图片文件 (极速看图)"
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.gif\DefaultIcon]
+@="C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe,0"
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.gif\shell\open\command]
+@="\"C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\.gif]
+@="FastImageViewer.gif"
+[HKEY_CURRENT_USER\Software\Classes\.gif\OpenWithProgids]
+"FastImageViewer.gif"=""
+
+; ---------- 5. 注册 ProgID：BMP ----------
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.bmp]
+@="图片文件 (极速看图)"
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.bmp\DefaultIcon]
+@="C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe,0"
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.bmp\shell\open\command]
+@="\"C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\.bmp]
+@="FastImageViewer.bmp"
+[HKEY_CURRENT_USER\Software\Classes\.bmp\OpenWithProgids]
+"FastImageViewer.bmp"=""
+
+; ---------- 6. 注册 ProgID：WEBP ----------
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.webp]
+@="图片文件 (极速看图)"
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.webp\DefaultIcon]
+@="C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe,0"
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.webp\shell\open\command]
+@="\"C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\.webp]
+@="FastImageViewer.webp"
+[HKEY_CURRENT_USER\Software\Classes\.webp\OpenWithProgids]
+"FastImageViewer.webp"=""
+
+; ---------- 7. 注册 ProgID：TIFF ----------
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.tiff]
+@="图片文件 (极速看图)"
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.tiff\DefaultIcon]
+@="C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe,0"
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.tiff\shell\open\command]
+@="\"C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\.tiff]
+@="FastImageViewer.tiff"
+[HKEY_CURRENT_USER\Software\Classes\.tiff\OpenWithProgids]
+"FastImageViewer.tiff"=""
+[HKEY_CURRENT_USER\Software\Classes\.tif]
+@="FastImageViewer.tiff"
+[HKEY_CURRENT_USER\Software\Classes\.tif\OpenWithProgids]
+"FastImageViewer.tiff"=""
+
+; ---------- 8. 注册 ProgID：ICO ----------
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.ico]
+@="图标文件 (极速看图)"
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.ico\DefaultIcon]
+@="C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe,0"
+[HKEY_CURRENT_USER\Software\Classes\FastImageViewer.ico\shell\open\command]
+@="\"C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\.ico]
+@="FastImageViewer.ico"
+[HKEY_CURRENT_USER\Software\Classes\.ico\OpenWithProgids]
+"FastImageViewer.ico"=""
+
+; ---------- 9. 允许从"运行"直接启动 ----------
+[HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\FastImageViewer.exe]
+@="C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer\\FastImageViewer.exe"
+"Path"="C:\\Users\\Administrator\\AppData\\Local\\Programs\\FastImageViewer"
+
+; ---------- 10. 清除 Windows 的"默认应用"锁定缓存 ----------
+; Windows 会优先读取 UserChoice，必须清掉它，上面注册的默认值才会真正生效
+[-HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.jpg\UserChoice]
+[-HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.jpeg\UserChoice]
+[-HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.png\UserChoice]
+[-HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.gif\UserChoice]
+[-HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.bmp\UserChoice]
+[-HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.webp\UserChoice]
+[-HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.tiff\UserChoice]
+[-HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.tif\UserChoice]
+[-HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.ico\UserChoice]
+
+; 同时在 FileExts 的 OpenWithList 中登记，保证"打开方式"列表里能看到
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.jpg\OpenWithProgids]
+"FastImageViewer.jpg"=hex(0):
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.png\OpenWithProgids]
+"FastImageViewer.png"=hex(0):
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.gif\OpenWithProgids]
+"FastImageViewer.gif"=hex(0):
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.bmp\OpenWithProgids]
+"FastImageViewer.bmp"=hex(0):
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.webp\OpenWithProgids]
+"FastImageViewer.webp"=hex(0):
