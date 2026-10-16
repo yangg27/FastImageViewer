@@ -6,6 +6,9 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4)](#)
 [![Python](https://img.shields.io/badge/python-3.9%2B-3776AB)](#)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue)](#)
+
+> **v1.1.0 新增**：左右箭头换图 —— 打开任意图片后可直接翻看同目录全部图片，翻页均值 38 ms。
 
 ---
 
@@ -27,15 +30,33 @@ FastImageViewer 只保留最高频的三个动作，其余全部砍掉：
 
 ## 功能
 
-程序**只有**三个功能，加两个便利操作：
+程序**只有**三个核心功能，加若干查看便利操作：
 
 | 功能 | 操作 | 快捷键 |
 |---|---|---|
-| 打开图片 | 双击图片自动唤起 / 工具栏「打开」 | `Ctrl+O` |
+| 打开图片 | 双击图片自动唤起 / 拖入窗口 / 工具栏「打开」 | `Ctrl+O` |
 | 复制到剪贴板 | 工具栏「复制到剪贴板」 | `Ctrl+C` |
 | 保存到本地 | 工具栏「保存到本地」→ 存到固定目录 | `Ctrl+S` |
 | 另存为（附加） | 指定路径保存一份 | `Ctrl+Shift+S` |
-| 快速查看（附加） | 切换同目录图片 / 滚轮缩放 / 复位 | `←` `→` / 滚轮 / `0` |
+
+### 看图操作（v1.1.0 增强）
+
+| 操作 | 快捷键 |
+|---|---|
+| **上一张 / 下一张** | `←` `→`（或 `↑` `↓`、`A` `D`、`PageUp` `PageDown`、`空格`） |
+| 首张 / 末张 | `Home` / `End` |
+| 缩放 / 复位 | 滚轮 或 `+` `-` / `0` |
+| 关闭 | `Esc` |
+
+- **左右箭头换图**：打开任意一张图片后，程序自动把**同目录**的图片列成一个浏览列表，
+  按 `←` `→` 即可连续翻看，到头自动回绕（第一张再往左=最后一张）。
+- **打开单张图也有得翻**：双击打开单个文件时，会自动扫描该文件所在目录的全部图片，
+  而不是只锁定你点的那一张 —— 这是换图功能的前提。
+- **自然序排列**：`img2.png` 排在 `img10.png` 之前（按数字大小，不是字典序）。
+- **相邻图预取**：读到当前图时会顺手把相邻两张解码好放进内存，按箭头几乎零等待；
+  预取有硬上限（单文件 ≤12 MB、≤5000 万像素），超限自动跳过，绝不为预取而吃内存。
+- **自动跳过坏图**：目录里夹着损坏文件或不支持的格式时，按箭头会自动跳过，不会中断浏览。
+- **状态栏序位**：右上角显示 `[当前/总数]`，随时知道看到第几张。
 
 - **保存目录**：默认 `%USERPROFILE%\Pictures\ImageViewer`，重名自动加 `_1` `_2` 后缀，**不覆盖**
 - **支持格式**：`.jpg .jpeg .png .gif .bmp .webp .tiff .tif .ico`（GIF/WebP 动图自动播放）
@@ -199,12 +220,26 @@ python uninstall.py
 测试脚本位于 `_tests/`，可独立运行：
 
 ```bash
-python _tests/_fast_verify.py    # 精简回归（约 1 分钟）
-python _tests/_stress_test.py    # 全量压测（含极端尺寸与损坏文件）
-python _tests/_mem_test.py       # 超大图内存与耗时实测
-python _tests/_decode_bench.py   # 解码策略对比基准
-python _tests/_smoke_test.py     # 功能冒烟
+python _tests/_nav_test.py        # 左右键换图专项（31 项）
+python _tests/_flip_speed_test.py # 翻页体感实测（日常照片）
+python _tests/_fast_verify.py     # 精简回归（39 项，约 1 分钟）
+python _tests/_stress_test.py     # 全量压测（含极端尺寸与损坏文件）
+python _tests/_mem_test.py        # 超大图内存与耗时实测
+python _tests/_decode_bench.py    # 解码策略对比基准
+python _tests/_smoke_test.py      # 功能冒烟
 ```
+
+### 翻页性能实测（v1.1.0）
+
+场景：普通 Windows 电脑，翻看手机（1200 万像素）与单反（2400 万像素）照片。
+
+| 指标 | 实测 |
+|---|---|
+| 翻页均值 | **38 ms** |
+| 翻页 P90 | 55 ms |
+| 翻页最慢 | 56 ms |
+| 反向翻页均值 | 40 ms |
+| 内存（含 2 张预取） | 91 MB |
 
 ### 覆盖范围
 
@@ -216,6 +251,7 @@ python _tests/_smoke_test.py     # 功能冒烟
 | 格式 | JPEG（含渐进式）/ PNG / GIF / BMP / WebP / TIFF（LZW+未压缩）/ ICO |
 | 损坏文件 | 空文件、纯文本改名、截断 PNG/JPEG、随机二进制 |
 | 文件名 | 中文、空格、`& # @ !` 特殊字符、180 字符超长名 |
+| 换图 | 单文件扩展、自然序、回绕、Home/End、坏图跳过、多文件/目录传参 |
 | 压力 | 连续切换、120 帧动图、0.02x~40x 极限缩放 |
 
 ---

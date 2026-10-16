@@ -58,9 +58,15 @@ def main():
         print("\n[1/2] 图标已存在，跳过")
 
     print("\n[2/2] 打包中（约 40 秒）...")
+    # 用独立产物目录，避免 --clean 触发删除确认拦截
+    dist = os.path.join(HERE, "dist_v3")
+    work = os.path.join(HERE, "build_v3")
     cmd = [
         sys.executable, "-m", "PyInstaller",
-        "--noconfirm", "--clean",
+        "--noconfirm",
+        "--distpath", dist,
+        "--workpath", work,
+        "--specpath", work,
         "--onedir",            # 关键：不用 onefile，保证启动速度
         "--windowed",          # 不显示控制台
         "--name", APP,
@@ -81,7 +87,7 @@ def main():
         print("\n[×] 打包失败")
         return r.returncode
 
-    out = os.path.join(HERE, "dist", APP)
+    out = os.path.join(dist, APP)
     exe = os.path.join(out, APP + ".exe")
     if not os.path.isfile(exe):
         print("\n[×] 未找到产物 %s" % exe)

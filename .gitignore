@@ -2,13 +2,18 @@
 .venv-build/
 build/
 build_v2/
+build_v3/
 build2/
 dist/
 dist_v2/
+dist_v3/
 dist2/
 __pycache__/
 *.pyc
 *.spec
+
+# 测试临时输出
+_reg*.txt
 
 # 发布包（走 GitHub Releases）
 FastImageViewer-win64.zip
