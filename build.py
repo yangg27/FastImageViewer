@@ -80,6 +80,8 @@ def main():
         "--exclude-module", "pandas",
         "--exclude-module", "scipy",
         "--exclude-module", "pytest",
+        "--hidden-import", "pytesseract",
+        "--add-data", "%s/tesseract;tesseract" % HERE,   # OCR 便携版
         "viewer.py",
     ]
     r = subprocess.run(cmd, cwd=HERE)

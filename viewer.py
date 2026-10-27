@@ -19,11 +19,12 @@ from ctypes import wintypes
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-# ---------- 极速启动：Pillow 延迟导入 ----------
+# ---------- 极速启动：延迟导入 ----------
 Image = None
 ImageTk = None
 ImageOps = None
 ImageFile = None
+pytesseract = None
 
 
 def _load_pil():
@@ -35,8 +36,27 @@ def _load_pil():
         Image, ImageTk, ImageOps, ImageFile = _I, _IT, _IO, _IF
 
 
+def _load_tesseract():
+    """延迟加载 pytesseract 并指定项目内便携版 Tesseract-OCR 路径"""
+    global pytesseract
+    if pytesseract is None:
+        import pytesseract as _pt
+        pytesseract = _pt
+    # PyInstaller onedir: sys._MEIPASS = _internal/；开发模式: __file__ 所在目录
+    if getattr(sys, "frozen", False):
+        base = sys._MEIPASS
+    else:
+        base = os.path.dirname(os.path.abspath(__file__))
+    tess_exe = os.path.join(base, "tesseract", "tesseract.exe")
+    tessdata = os.path.join(base, "tesseract", "tessdata")
+    if os.path.isfile(tess_exe):
+        pytesseract.pytesseract.tesseract_cmd = tess_exe
+        os.environ["TESSDATA_PREFIX"] = tessdata
+    return pytesseract
+
+
 APP_NAME = "FastImageViewer"
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 SUPPORTED = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp",
              ".tiff", ".tif", ".ico")
 CONFIG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), APP_NAME)
@@ -363,6 +383,12 @@ class ImageViewer:
         self.save_dir = cfg.get("save_dir") or DEFAULT_SAVE_DIR
         self.bg = cfg.get("bg", "#2b2b2b")
 
+        # OCR 状态
+        self.ocr_results = []
+        self.ocr_panel = None
+        self.ocr_listbox = None
+        self.ocr_thread = None
+
         # 待浏览列表：单个文件也会扩展成"同目录全部图片"，左右箭头才有意义
         self.paths, self.idx = _build_list(paths)
 
@@ -409,13 +435,21 @@ class ImageViewer:
         mkbtn("另存为…", self.save_as)
         mkbtn("↺", self.rotate_left)
         mkbtn("↻", self.rotate_right)
+        mkbtn("识别文字", self.start_ocr)
 
         self.info = tk.Label(bar, text="", bg="#333333", fg="#9a9a9a",
                              anchor="e", padx=10)
         self.info.pack(side="right", fill="x", expand=True)
 
-        self.canvas = tk.Canvas(r, bg=self.bg, highlightthickness=0, bd=0)
-        self.canvas.pack(side="top", fill="both", expand=True)
+        # 内容区：canvas（左）+ OCR 面板（右，隐藏）
+        self._content = tk.Frame(r, bg=self.bg)
+        self._content.pack(side="top", fill="both", expand=True)
+
+        self.canvas = tk.Canvas(self._content, bg=self.bg, highlightthickness=0, bd=0)
+        self.canvas.pack(side="left", fill="both", expand=True)
+
+        # ---- OCR 结果侧栏（默认隐藏） ----
+        self._build_ocr_panel()
 
         self.toast = tk.Label(r, text="", bg="#000000", fg="#ffffff",
                               padx=14, pady=6)
@@ -499,6 +533,7 @@ class ImageViewer:
         r.bind("<l>", lambda e: self.rotate_left())
         r.bind("<L>", lambda e: self.rotate_left())
         r.bind("<Control-r>", lambda e: self.rotate_reset())
+        r.bind("<Control-t>", lambda e: self.start_ocr())
         r.focus_set()
 
     def jump(self, idx):
@@ -548,6 +583,162 @@ class ImageViewer:
             self.toast.place_forget()
         except Exception:
             pass
+
+    # ---- OCR 文字识别 ----
+    def _build_ocr_panel(self):
+        """构建 OCR 结果侧栏（默认隐藏），仿微信读图文字列表风格"""
+        panel = tk.Frame(self._content, bg="#1e1e1e", width=300, bd=0)
+        # 顶栏
+        topbar = tk.Frame(panel, bg="#2d2d2d", height=36)
+        topbar.pack(side="top", fill="x")
+        tk.Label(topbar, text="识别结果", bg="#2d2d2d", fg="#cccccc",
+                 font=("Microsoft YaHei UI", 10), anchor="w", padx=10).pack(
+                     side="left", fill="y")
+        def _close():
+            panel.pack_forget()
+            self.ocr_results = []
+        tk.Button(topbar, text="✕", command=_close, bd=0, relief="flat",
+                  bg="#2d2d2d", fg="#888888", activebackground="#444444",
+                  activeforeground="#ffffff", font=("", 10), cursor="hand2").pack(
+                      side="right", padx=8, pady=6)
+
+        # 列表区（含滚动条）
+        list_frame = tk.Frame(panel, bg="#1e1e1e")
+        list_frame.pack(side="top", fill="both", expand=True)
+        scrollbar = tk.Scrollbar(list_frame, bg="#333333", troughcolor="#1e1e1e",
+                                 activebackground="#555555", bd=0)
+        scrollbar.pack(side="right", fill="y")
+        lb = tk.Listbox(list_frame, bg="#1e1e1e", fg="#d4d4d4",
+                        selectbackground="#264f78", selectforeground="#ffffff",
+                        activestyle="none", bd=0, highlightthickness=0,
+                        font=("Microsoft YaHei UI", 10),
+                        yscrollcommand=scrollbar.set)
+        lb.pack(side="left", fill="both", expand=True)
+        scrollbar.configure(command=lb.yview)
+
+        # 底栏按钮
+        btns = tk.Frame(panel, bg="#252525", height=36)
+        btns.pack(side="bottom", fill="x")
+        tk.Button(btns, text="复制选中", command=self._copy_ocr_line,
+                  bd=0, relief="flat", bg="#2d2d2d", fg="#cccccc",
+                  activebackground="#3c3c3c", activeforeground="#ffffff",
+                  font=("Microsoft YaHei UI", 9), cursor="hand2",
+                  padx=10, pady=4).pack(side="left", padx=8, pady=5)
+        tk.Button(btns, text="复制全部", command=self._copy_ocr_all,
+                  bd=0, relief="flat", bg="#2d2d2d", fg="#cccccc",
+                  activebackground="#3c3c3c", activeforeground="#ffffff",
+                  font=("Microsoft YaHei UI", 9), cursor="hand2",
+                  padx=10, pady=4).pack(side="right", padx=8, pady=5)
+        # 行数标签
+        self._ocr_count_label = tk.Label(btns, text="", bg="#252525", fg="#888888",
+                                         font=("Microsoft YaHei UI", 8))
+        self._ocr_count_label.pack(side="right", padx=4)
+
+        self.ocr_panel = panel
+        self.ocr_listbox = lb
+
+    def start_ocr(self):
+        """触发文字识别（Ctrl+T / 按钮）"""
+        if self.orig is None:
+            self.toast_msg("还没有打开图片", err=True)
+            return
+        # 收起旧面板，开始新识别
+        if self.ocr_panel:
+            self.ocr_panel.pack_forget()
+        self.ocr_results = []
+        self.toast_msg("正在识别文字…")
+        try:
+            t = threading.Thread(target=self._run_ocr, daemon=True)
+            t.start()
+            self.ocr_thread = t
+        except Exception as e:
+            self.toast_msg("启动识别失败：%s" % _short(e, 60), err=True)
+
+    def _run_ocr(self):
+        """后台线程：执行 OCR，结果回传 UI 线程"""
+        _load_pil()
+        try:
+            _load_tesseract()
+        except Exception as e:
+            self.root.after(0, lambda: self.toast_msg(
+                "Tesseract 未安装，请先运行 install_tesseract.py", err=True))
+            return
+
+        # 取全分辨率图像（旋转已应用），OCR 需要清晰源
+        try:
+            img = self._full_image()
+        except Exception as e:
+            self.root.after(0, lambda: self.toast_msg("取图失败：%s" % _short(e, 60), err=True))
+            return
+
+        try:
+            data = pytesseract.image_to_data(
+                img, lang="chi_sim+eng",
+                output_type=pytesseract.Output.DICT)
+        except Exception as e:
+            self.root.after(0, lambda: self.toast_msg(
+                "OCR 识别失败：%s" % _short(e, 80), err=True))
+            return
+
+        # 提取非空文本行
+        results = []
+        n = len(data.get("text", []))
+        for i in range(n):
+            text = (data["text"][i] or "").strip()
+            if text and len(text) >= 1:
+                conf = data["conf"][i]
+                results.append({"text": text, "conf": int(conf) if isinstance(conf, (int, float)) and conf > 0 else 0})
+        self.ocr_results = results
+        self.root.after(0, self._show_ocr_results)
+
+    def _show_ocr_results(self):
+        """UI 线程：展示识别结果到侧栏"""
+        if not self._alive or self.ocr_listbox is None or self.ocr_panel is None:
+            return
+        lb = self.ocr_listbox
+        lb.delete(0, "end")
+        for r in self.ocr_results:
+            conf_str = " · %d%%" % r["conf"] if r["conf"] > 0 else ""
+            lb.insert("end", r["text"] + conf_str)
+        n = len(self.ocr_results)
+        self._ocr_count_label.configure(text="%d 条" % n if n else "")
+        if n > 0:
+            self.ocr_panel.pack(side="right", fill="y")
+            self.toast_msg("识别到 %d 条文字 ✓" % n)
+        else:
+            self.toast_msg("未识别到文字", err=True)
+
+    def _copy_ocr_line(self):
+        """复制选中的文字行到剪贴板"""
+        lb = self.ocr_listbox
+        if lb is None:
+            return
+        sel = lb.curselection()
+        if not sel:
+            self.toast_msg("请先在列表中选择一行文字", err=True)
+            return
+        idx = sel[0]
+        if 0 <= idx < len(self.ocr_results):
+            text = self.ocr_results[idx]["text"]
+            try:
+                self.root.clipboard_clear()
+                self.root.clipboard_append(text)
+                self.toast_msg("已复制：%s" % (text[:40] + ("..." if len(text) > 40 else "")))
+            except Exception:
+                self.toast_msg("复制失败（剪贴板不可用）", err=True)
+
+    def _copy_ocr_all(self):
+        """复制全部识别文字到剪贴板"""
+        if not self.ocr_results:
+            self.toast_msg("没有可复制的文字", err=True)
+            return
+        text = "\n".join(r["text"] for r in self.ocr_results)
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(text)
+            self.toast_msg("已复制全部 %d 条文字 ✓" % len(self.ocr_results))
+        except Exception:
+            self.toast_msg("复制失败（剪贴板不可用）", err=True)
 
     def _error(self, title, path=None, exc=None):
         detail = ""
