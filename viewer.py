@@ -36,7 +36,7 @@ def _load_pil():
 
 
 APP_NAME = "FastImageViewer"
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 SUPPORTED = (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp",
              ".tiff", ".tif", ".ico")
 CONFIG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), APP_NAME)
@@ -348,6 +348,7 @@ class ImageViewer:
         self.anim_job = None
         self.tkimg = None
         self.zoom = None            # None = 自适应窗口；否则为倍率
+        self.rotate = 0             # 顺时针旋转角度：0 / 90 / 180 / 270
         self._render_job = None
         self._last_size = None
         self._alive = True
@@ -406,6 +407,8 @@ class ImageViewer:
         mkbtn("复制到剪贴板", self.copy_clip)
         mkbtn("保存到本地", self.save_fixed)
         mkbtn("另存为…", self.save_as)
+        mkbtn("↺", self.rotate_left)
+        mkbtn("↻", self.rotate_right)
 
         self.info = tk.Label(bar, text="", bg="#333333", fg="#9a9a9a",
                              anchor="e", padx=10)
@@ -490,6 +493,12 @@ class ImageViewer:
         r.bind("<minus>", lambda e: self.zoom_by(1 / self.WHEEL_STEP))
         r.bind("<0>", lambda e: self.zoom_reset())
         r.bind("<space>", lambda e: self.step(1))
+        # 旋转：R 右转 90°，Shift+R / L 左转 90°
+        r.bind("<r>", lambda e: self.rotate_right())
+        r.bind("<R>", lambda e: self.rotate_left())
+        r.bind("<l>", lambda e: self.rotate_left())
+        r.bind("<L>", lambda e: self.rotate_left())
+        r.bind("<Control-r>", lambda e: self.rotate_reset())
         r.focus_set()
 
     def jump(self, idx):
@@ -850,6 +859,7 @@ class ImageViewer:
         self.src_path = path
         self.paths[self.idx] = path        # 同步列表（可能被交互式换过）
         self.zoom = None
+        self.rotate = 0                    # 旋转是单张图的视图状态，换图即复位
         self._last_size = None
         try:
             self.root.title("%s - 极速看图" % os.path.basename(path))
@@ -931,6 +941,8 @@ class ImageViewer:
         except Exception:
             return 1.0
         iw, ih = self.orig.size
+        if self.rotate in (90, 270):
+            iw, ih = ih, iw          # 旋转 90/270 后宽高互换
         if iw <= 0 or ih <= 0:
             return 1.0
         return min(W / iw, H / ih, 1.0)
@@ -965,6 +977,65 @@ class ImageViewer:
         self._last_size = None
         self.render()
 
+    # ---- 旋转 ----
+    def rotate_left(self):
+        """逆时针 90°（按钮 ↺）"""
+        self._rotate_by(-90)
+
+    def rotate_right(self):
+        """顺时针 90°（按钮 ↻）"""
+        self._rotate_by(90)
+
+    def rotate_reset(self):
+        """恢复原始方向（Ctrl+R）"""
+        if self.orig is None:
+            return
+        if self.rotate == 0:
+            self.toast_msg("当前已是原始方向")
+            return
+        self.rotate = 0
+        self._after_rotate(upright=True)
+
+    def _rotate_by(self, deg):
+        if self.orig is None:
+            self.toast_msg("还没有打开图片", err=True)
+            return
+        cur = self.rotate or 0
+        self.rotate = (cur + deg) % 360
+        self._after_rotate()
+
+    def _after_rotate(self, upright=False):
+        """旋转后重算缩放基准：旋转会改变可用显示区域"""
+        self._last_size = None
+        # 旋转 90/270 后宽高互换，自适应倍率要重算一次才不别扭
+        self.zoom = None
+        if self._alive:
+            self.render()
+        # 旋转是临时视图状态，明确告知用户输出会跟随
+        deg = self.rotate or 0
+        if upright:
+            self.toast_msg("已恢复原始方向")
+        elif deg:
+            self.toast_msg("已旋转 %d°（复制/保存将按当前方向输出）" % deg)
+
+    def _apply_rotate(self, img):
+        """
+        把旋转应用到图像对象。只在需要时转置，0° 原样返回（零开销）。
+        用 PIL 的 transpose 常量，90° 倍数是无损操作（纯像素重排，不重采样）。
+        """
+        if not self.rotate or img is None:
+            return img
+        try:
+            if self.rotate == 90:
+                return img.transpose(Image.ROTATE_270)   # PIL 的 ROTATE_* 是逆时针
+            if self.rotate == 180:
+                return img.transpose(Image.ROTATE_180)
+            if self.rotate == 270:
+                return img.transpose(Image.ROTATE_90)
+        except Exception:
+            pass
+        return img
+
     def render(self):
         self._render_job = None
         if self.orig is None or not self._alive:
@@ -979,6 +1050,14 @@ class ImageViewer:
         iw, ih = self.orig.size
         if iw <= 0 or ih <= 0:
             return
+
+        # 旋转在缩放之前做：90° 倍数是纯像素重排，不重采样、不损画质
+        src = self.orig
+        if self.rotate:
+            src = self._apply_rotate(self.orig)
+            if src is None:
+                src = self.orig
+        iw, ih = src.size
 
         s = self.zoom if self.zoom is not None else min(W / iw, H / ih, 1.0)
         nw = max(1, int(iw * s))
@@ -997,8 +1076,29 @@ class ImageViewer:
             resample = Image.LANCZOS if (iw * ih) <= 4_000_000 else Image.BILINEAR
         else:
             resample = Image.NEAREST
+
+        # ★ 可见区域渲染：放大到远超画布时，只渲染画布能显示的那一块。
+        #   否则 8K 图放大 5 倍要算 1 亿像素，而屏幕只看得到 0.07%——纯浪费。
+        disp = None
         try:
-            disp = self.orig if (nw, nh) == (iw, ih) else self.orig.resize((nw, nh), resample)
+            need = nw * nh
+            # 超过画布面积的若干倍就切块渲染，避免无谓的大图运算
+            budget = max(W * H * 4, 2_000_000)
+            if need > budget:
+                # 画布中心对准图像中心，取可见矩形对应的源图区域
+                sw = max(1, int(min(nw, W) / max(s, 1e-6)))
+                sh = max(1, int(min(nh, H) / max(s, 1e-6)))
+                left = max(0, (iw - sw) // 2)
+                top = max(0, (ih - sh) // 2)
+                right = min(iw, left + sw)
+                bottom = min(ih, top + sh)
+                if right > left and bottom > top:
+                    crop = src.crop((left, top, right, bottom))
+                    cw = max(1, int(crop.size[0] * s))
+                    ch = max(1, int(crop.size[1] * s))
+                    disp = crop if (cw, ch) == crop.size else crop.resize((cw, ch), resample)
+            if disp is None:
+                disp = src if (nw, nh) == (iw, ih) else src.resize((nw, nh), resample)
             self.tkimg = ImageTk.PhotoImage(disp)
         except MemoryError:
             self._last_size = None
@@ -1030,6 +1130,9 @@ class ImageViewer:
         extra = ""
         if self.anim_total > 1:
             extra = "  ·  动图 %d 帧" % self.anim_total
+        rot = ""
+        if self.rotate:
+            rot = "  ·  旋转 %d°" % self.rotate
         pos = ""
         try:
             if len(self.paths) > 1:
@@ -1037,16 +1140,16 @@ class ImageViewer:
         except Exception:
             pos = ""
         try:
-            self.info.configure(text="%s   %d×%d   %d%%%s%s%s"
-                                     % (name, iw, ih, pct, pos, fsize, extra))
+            self.info.configure(text="%s   %d×%d   %d%%%s%s%s%s"
+                                     % (name, iw, ih, pct, pos, rot, fsize, extra))
         except Exception:
             pass
 
     # ---- 高保真取图（复制/另存用） ----
     def _full_image(self):
-        """返回全分辨率图像：显示时可能降过采样，输出绝不将就"""
+        """返回全分辨率图像（已应用旋转）：显示时可能降过采样，输出绝不将就"""
         if self._anim_source is not None:
-            return self.orig              # 动图按当前帧输出
+            return self._apply_rotate(self.orig)    # 动图按当前帧输出
         if self._downscaled and self.src_path and os.path.isfile(self.src_path):
             try:
                 im = Image.open(self.src_path)
@@ -1055,10 +1158,10 @@ class ImageViewer:
                     im = ImageOps.exif_transpose(im)
                 except Exception:
                     pass
-                return im
+                return self._apply_rotate(im)
             except Exception:
                 pass
-        return self.orig
+        return self._apply_rotate(self.orig)
 
     # ---- 三大功能 ----
     def copy_clip(self):
@@ -1082,10 +1185,14 @@ class ImageViewer:
             return
         try:
             src = self.src_path
-            if src and os.path.isfile(src):
-                # 原文件直接复制，零画质损失
+            if src and os.path.isfile(src) and not self.rotate:
+                # 未旋转：原文件直接复制，零画质损失
                 dst = unique_path(self.save_dir, os.path.basename(src))
                 shutil.copy2(src, dst)
+            elif src and os.path.isfile(src) and self.rotate:
+                # 已旋转：必须重新编码，否则存下去还是原方向
+                dst = unique_path(self.save_dir, os.path.basename(src))
+                self._save_image(dst, self._full_image())
             else:
                 img = self._full_image()
                 ext = (getattr(img, "format", None) or "PNG").lower()
@@ -1118,9 +1225,10 @@ class ImageViewer:
         if not path:
             return
         try:
-            if cur and os.path.isfile(cur) and \
-                    os.path.splitext(path)[1].lower() == os.path.splitext(cur)[1].lower():
-                shutil.copy2(cur, path)     # 同格式直接复制，零损失
+            same_ext = (os.path.splitext(path)[1].lower() ==
+                        os.path.splitext(cur)[1].lower()) if cur else False
+            if cur and os.path.isfile(cur) and same_ext and not self.rotate:
+                shutil.copy2(cur, path)     # 未旋转且同格式 → 直接复制，零损失
             else:
                 self._save_image(path, self._full_image())
             self.toast_msg("已保存：%s" % path)
