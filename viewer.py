@@ -680,14 +680,29 @@ class ImageViewer:
                 "OCR 识别失败：%s" % _short(e, 80), err=True))
             return
 
-        # 提取非空文本行
+        # 按行合并词级结果，避免零散单词无法连续复制
         results = []
         n = len(data.get("text", []))
+        lines = {}  # (block_num, line_num) -> {"texts": [...], "confs": [...]}
         for i in range(n):
             text = (data["text"][i] or "").strip()
-            if text and len(text) >= 1:
-                conf = data["conf"][i]
-                results.append({"text": text, "conf": int(conf) if isinstance(conf, (int, float)) and conf > 0 else 0})
+            if not text:
+                continue
+            bn = data.get("block_num", [0] * n)[i]
+            ln = data.get("line_num", [0] * n)[i]
+            key = (bn, ln)
+            if key not in lines:
+                lines[key] = {"texts": [], "confs": []}
+            lines[key]["texts"].append(text)
+            conf = data["conf"][i]
+            if isinstance(conf, (int, float)) and conf > 0:
+                lines[key]["confs"].append(int(conf))
+
+        for key in sorted(lines.keys()):
+            info = lines[key]
+            line_text = " ".join(info["texts"])
+            avg_conf = int(sum(info["confs"]) / len(info["confs"])) if info["confs"] else 0
+            results.append({"text": line_text, "conf": avg_conf})
         self.ocr_results = results
         self.root.after(0, self._show_ocr_results)
 
